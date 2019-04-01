@@ -212,10 +212,11 @@ var PinchZoom = (function () {
       }
     }
 
-    var css = "pinch-zoom {\n  display: block;\n  overflow: hidden;\n  touch-action: none;\n  --scale: 1;\n  --x: 0;\n  --y: 0;\n}\n\npinch-zoom > * {\n  transform: translate(var(--x), var(--y)) scale(var(--scale));\n  transform-origin: 0 0;\n  will-change: transform;\n}\n";
+    var css = "pinch-zoom {\r\n  display: block;\r\n  overflow: hidden;\r\n  touch-action: none;\r\n  --scale: 1;\r\n  --x: 0;\r\n  --y: 0;\r\n}\r\n\r\npinch-zoom > * {\r\n  transform: translate(var(--x), var(--y)) scale(var(--scale));\r\n  transform-origin: 0 0;\r\n  will-change: transform;\r\n}\r\n";
     styleInject(css);
 
     const minScaleAttr = 'min-scale';
+    const maxScaleAttr = 'max-scale';
     function getDistance(a, b) {
         if (!b)
             return 0;
@@ -250,6 +251,7 @@ var PinchZoom = (function () {
         return getSVG().createSVGPoint();
     }
     const MIN_SCALE = 0.01;
+    const MAX_SCALE = 2.00;
     class PinchZoom extends HTMLElement {
         constructor() {
             super();
@@ -275,11 +277,16 @@ var PinchZoom = (function () {
             });
             this.addEventListener('wheel', event => this._onWheel(event));
         }
-        static get observedAttributes() { return [minScaleAttr]; }
+        static get observedAttributes() { return [minScaleAttr, maxScaleAttr]; }
         attributeChangedCallback(name, oldValue, newValue) {
             if (name === minScaleAttr) {
                 if (this.scale < this.minScale) {
                     this.setTransform({ scale: this.minScale });
+                }
+            }
+            if (name === maxScaleAttr) {
+                if (this.scale > this.maxScale) {
+                    this.setTransform({ scale: this.maxScale });
                 }
             }
         }
@@ -294,6 +301,18 @@ var PinchZoom = (function () {
         }
         set minScale(value) {
             this.setAttribute(minScaleAttr, String(value));
+        }
+        get maxScale() {
+            const attrValue = this.getAttribute(maxScaleAttr);
+            if (!attrValue)
+                return MAX_SCALE;
+            const value = parseFloat(attrValue);
+            if (Number.isFinite(value))
+                return Math.min(MAX_SCALE, value);
+            return MAX_SCALE;
+        }
+        set maxScale(value) {
+            this.setAttribute(maxScaleAttr, String(value));
         }
         connectedCallback() {
             this._stageElChange();
@@ -397,6 +416,9 @@ var PinchZoom = (function () {
         _updateTransform(scale, x, y, allowChangeEvent) {
             // Avoid scaling to zero
             if (scale < this.minScale)
+                return;
+            // Avoid scaling too close
+            if (scale > this.maxScale)
                 return;
             // Return if there's no change
             if (scale === this.scale &&
